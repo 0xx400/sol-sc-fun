@@ -1,0 +1,19 @@
+# cargo-features = ["edition2021"]
+
+[package]
+name = "rivercontract"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[features]
+no-entrypoint = []
+
+[dependencies]
+solana-program = "1.9.5"
+thiserror = "1.0.30"
+spl-token = {version = "3.3.0", features = ["no-entrypoint"]}
+arrayref = "0.3.6"
+
+[lib]
+crate-type = ["cdylib", "lib"]
