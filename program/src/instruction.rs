@@ -20,9 +20,7 @@ pub enum RiverInstruction {
     ///
     /// 0. `[signer]` The account of user
     /// 1. `[writable]` The config account, it will hold all necessary info about contract state.
-    SomeSimpleInstruction {
-        amount: u64,
-    },
+    AccumInstruction { amount: u64 },
     /// Init account.
     ///
     ///
@@ -40,8 +38,8 @@ impl RiverInstruction {
         let (tag, rest) = input.split_first().ok_or(InvalidInstruction)?;
 
         Ok(match tag {
-            0 => Self::Init ,
-            1 => Self::SomeSimpleInstruction {
+            0 => Self::Init,
+            1 => Self::AccumInstruction {
                 amount: Self::unpack_amount(rest)?,
             },
             2 => Self::Close,

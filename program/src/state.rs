@@ -27,13 +27,8 @@ impl Pack for River {
     const LEN: usize = 81;
     fn pack_into_slice(&self, dst: &mut [u8]) {
         let dst = array_mut_ref![dst, 0, River::LEN];
-        let (
-            is_initialized_dst,
-            owner_dst,
-            last_user_dst,
-            accumulator_dst,
-            user_changes_dst,
-        ) = mut_array_refs![dst, 1, 32, 32, 8, 8];
+        let (is_initialized_dst, owner_dst, last_user_dst, accumulator_dst, user_changes_dst) =
+            mut_array_refs![dst, 1, 32, 32, 8, 8];
 
         let River {
             is_initialized,
@@ -52,13 +47,8 @@ impl Pack for River {
 
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
         let src = array_ref![src, 0, River::LEN];
-        let (
-            is_initialized,
-            owner,
-            last_user,
-            accumulator,
-            user_changes,
-        ) = array_refs![src, 1, 32, 32, 8, 8];
+        let (is_initialized, owner, last_user, accumulator, user_changes) =
+            array_refs![src, 1, 32, 32, 8, 8];
         let is_initialized = match is_initialized {
             [0] => false,
             [1] => true,
