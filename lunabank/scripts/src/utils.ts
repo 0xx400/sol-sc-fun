@@ -90,3 +90,19 @@ export interface LunabankLayout {
   baseTokenAccount: Uint8Array;
   coef: Uint8Array;
 }
+
+export const LUNADEPOSIT_ACCOUNT_DATA_LAYOUT = BufferLayout.struct([
+  BufferLayout.u8("isInitialized"),
+  publicKey("owner"),
+  uint64("amount"),
+  uint64("startTimestamp"),
+  uint64("endTimestamp"),
+]);
+
+export interface LunaDepositLayout {
+  isInitialized: number;
+  owner: Uint8Array;
+  amount: Uint8Array;
+  startTimestamp: Uint8Array;
+  endTimestamp: Uint8Array;
+}

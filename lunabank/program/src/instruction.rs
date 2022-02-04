@@ -50,7 +50,25 @@ pub enum LunabankInstruction {
     /// 12. `[]` The system clock program
     ///
     DepositInstruction { amount: u64, deposit_time: u64 },
-//    WithdrawInstruction,
+    /// Withdraw,
+    ///
+    ///
+    /// Accounts expected:
+    ///
+    /// 0. `[signer]` The account of the person initializing the contract
+    /// 1. `[]` The config account, it will hold all necessary info about the contract.
+    /// 2. `[]` base token mint
+    /// 3. `[writable]` base token account
+    /// 4. `[writable]` user base token account
+    /// 5. `[writable]` recipe token mint
+    /// 6. `[writable]` user recipe token account
+    /// 7. `[writable]` PDA user subaccount owner (config + initializer + "deposit")
+    /// 8. `[]` PDA owner (config + "lunaowner")
+    /// 9. `[]` The token program
+    /// 10. `[]` The system program
+    /// 11. `[]` The system clock program
+    ///
+    WithdrawInstruction,
 }
 
 impl LunabankInstruction {
@@ -68,7 +86,7 @@ impl LunabankInstruction {
                     deposit_time,
                 }
             },
-//            3 => Self::WithdrawInstruction,
+            3 => Self::WithdrawInstruction,
             _ => return Err(InvalidInstruction.into()),
         })
     }
