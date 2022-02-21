@@ -1,4 +1,4 @@
-{
+`{
   "compilerOptions": {
       "rootDir": "./src",
       "outDir": "./build",
@@ -7,3 +7,4 @@
       "skipLibCheck": true
   }
 }
+`

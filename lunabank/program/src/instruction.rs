@@ -85,7 +85,7 @@ impl LunabankInstruction {
                     amount,
                     deposit_time,
                 }
-            },
+            }
             3 => Self::WithdrawInstruction,
             _ => return Err(InvalidInstruction.into()),
         })

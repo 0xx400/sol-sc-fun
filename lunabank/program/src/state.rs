@@ -75,7 +75,6 @@ impl Pack for Lunabank {
     }
 }
 
-
 #[derive(Debug)]
 pub struct LunaDeposit {
     pub is_initialized: bool,
@@ -97,13 +96,8 @@ impl Pack for LunaDeposit {
     const LEN: usize = 57;
     fn pack_into_slice(&self, dst: &mut [u8]) {
         let dst = array_mut_ref![dst, 0, LunaDeposit::LEN];
-        let (
-            is_initialized_dst,
-            owner_dst,
-            amount_dst,
-            start_timestamp_dst,
-            end_timestamp_dst,
-        ) = mut_array_refs![dst, 1, 32, 8, 8, 8];
+        let (is_initialized_dst, owner_dst, amount_dst, start_timestamp_dst, end_timestamp_dst) =
+            mut_array_refs![dst, 1, 32, 8, 8, 8];
 
         let LunaDeposit {
             is_initialized,

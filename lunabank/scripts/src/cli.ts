@@ -694,4 +694,116 @@ program
         await dumpConfig(connection, LunabankConfigId);
     })
 
+program
+    .command('test3')
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    .action(async (directory, cmd) => {
+        const accountMetas = [
+            {
+                pubkey: "1111",
+                isWritable: true,
+                isSigner: true,
+            },
+            {
+                pubkey: "1112",
+                isWritable: true,
+                isSigner: true,
+            },
+            {
+                pubkey: "1113",
+                isWritable: true,
+                isSigner: true,
+            },
+            {
+                pubkey: "1114",
+                isWritable: true,
+                isSigner: true,
+            },
+            {
+                pubkey: "1115",
+                isWritable: true,
+                isSigner: true,
+            },
+            {
+                pubkey: "22222",
+                isWritable: true,
+                isSigner: false,
+            },
+            {
+                pubkey: "22223",
+                isWritable: true,
+                isSigner: false,
+            },
+            {
+                pubkey: "22224",
+                isWritable: true,
+                isSigner: false,
+            },
+            {
+                pubkey: "22225",
+                isWritable: true,
+                isSigner: false,
+            },
+            {
+                pubkey: "22226",
+                isWritable: true,
+                isSigner: false,
+            },
+            {
+                pubkey: "32229",
+                isWritable: false,
+                isSigner: false,
+            },
+            {
+                pubkey: "32225",
+                isWritable: false,
+                isSigner: false,
+            },
+            {
+                pubkey: "32226",
+                isWritable: false,
+                isSigner: false,
+            },
+            {
+                pubkey: "32227",
+                isWritable: false,
+                isSigner: false,
+            },
+            {
+                pubkey: "42224",
+                isWritable: false,
+                isSigner: true,
+            },
+            {
+                pubkey: "42225",
+                isWritable: false,
+                isSigner: true,
+            },
+            {
+                pubkey: "42226",
+                isWritable: false,
+                isSigner: true,
+            },
+        ];
+
+        let accountMetas2 = accountMetas
+          .map(value => ({ value, sort: Math.random() }))
+          .sort((a, b) => ((parseInt(a.value.pubkey) % 10) - (parseInt(b.value.pubkey) % 10)) || a.sort - b.sort)
+          .map(({ value }) => value);
+
+        const sortedAccountMetas = accountMetas2
+            .map((item, index) => ({ item, index }))
+            .sort((xt, yt) =>  {
+                const x = xt.item;
+                const y = yt.item;
+                const checkSigner = x.isSigner === y.isSigner ? 0 : x.isSigner ? -1 : 1;
+                const checkWritable =
+                    x.isWritable === y.isWritable ? 0 : x.isWritable ? -1 : 1;
+                return checkSigner || checkWritable || xt.index - yt.index;
+            })
+            .map(({ item }) => item);
+
+        console.log("AAA = ", sortedAccountMetas);
+    });
+
 program.parse();

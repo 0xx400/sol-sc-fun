@@ -1,35 +1,27 @@
+use mpl_token_metadata::utils::assert_owned_by;
 use solana_program::program::invoke_signed;
 use solana_program::program_option::COption;
 use solana_program::{
-    system_instruction, system_program, entrypoint::ProgramResult,
-    msg, program::invoke, program_error::ProgramError,
-    account_info::{
-        next_account_info,
-        AccountInfo
-    },
-    program_pack::{
-        IsInitialized,
-        Pack
-    }, pubkey::Pubkey,
-    sysvar,
-    sysvar::{
-        rent::Rent,
-        Sysvar,
-        clock::Clock,
-    },
+    account_info::{next_account_info, AccountInfo},
+    entrypoint::ProgramResult,
+    msg,
+    program::invoke,
+    program_error::ProgramError,
+    program_pack::{IsInitialized, Pack},
+    pubkey::Pubkey,
+    system_instruction, system_program, sysvar,
+    sysvar::{clock::Clock, rent::Rent, Sysvar},
 };
-
 
 use spl_token::instruction::AuthorityType;
 
 use spl_token::state::{Account as TokenAccount, Mint};
 
-use crate::{error::LunabankError, instruction::LunabankInstruction, state::Lunabank};
 use crate::state::LunaDeposit;
+use crate::{error::LunabankError, instruction::LunabankInstruction, state::Lunabank};
+use crate::utils::{assert_signer, assert_writable, assert_acc_eq};
 
-const ERROR_TIME_OVERFLOW: u32 = 0x123;
-const ERROR_TIME_TOO_SOON: u32 = 0x124;
-//const ERROR_DEBUG_TEMP: u32 = 0x200;
+//use mpl_token_metadata::instruction::MetadataInstruction;
 
 pub struct Processor;
 impl Processor {
@@ -48,15 +40,22 @@ impl Processor {
             LunabankInstruction::Init => {
                 msg!("Instruction: Init");
                 Self::process_init(accounts, program_id)
-            },
+            }
             LunabankInstruction::Close => {
                 msg!("Instruction: Close");
                 Self::process_close(accounts, program_id)
-            },
-            LunabankInstruction::DepositInstruction {amount, deposit_time} => {
-                msg!("Instruction: DepositInstruction {} {}", amount ,deposit_time);
+            }
+            LunabankInstruction::DepositInstruction {
+                amount,
+                deposit_time,
+            } => {
+                msg!(
+                    "Instruction: DepositInstruction {} {}",
+                    amount,
+                    deposit_time
+                );
                 Self::process_deposit(accounts, program_id, amount, deposit_time)
-            },
+            }
             LunabankInstruction::WithdrawInstruction => {
                 msg!("Instruction: WithdrawInstruction");
                 Self::process_withdraw(accounts, program_id)
@@ -66,135 +65,147 @@ impl Processor {
 
     fn process_init(accounts: &[AccountInfo], program_id: &Pubkey) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
-        let initializer = next_account_info(account_info_iter)?;
-        if !initializer.is_signer {
-            return Err(ProgramError::MissingRequiredSignature);
-        }
+        let initializer_info = next_account_info(account_info_iter)?;
+        assert_signer(initializer_info)?;
 
-        let config_account = next_account_info(account_info_iter)?;
-        if !config_account.is_writable {
-            return Err(ProgramError::InvalidInstructionData);
-        }
-        if config_account.owner != program_id {
-            return Err(ProgramError::IncorrectProgramId);
-        }
+        let config_account_info = next_account_info(account_info_iter)?;
+        assert_writable(config_account_info)?;
+        assert_owned_by(config_account_info, program_id)?;
 
-        let base_token_mint = next_account_info(account_info_iter)?;
-        if *base_token_mint.owner != spl_token::id() {
-            return Err(ProgramError::IllegalOwner);
-        }
+        let base_token_mint_info = next_account_info(account_info_iter)?;
+        assert_owned_by(base_token_mint_info, &spl_token::id())?;
+        // if *base_token_mint.owner != spl_token::id() {
+        //     return Err(ProgramError::IllegalOwner);
+        // }
 
-        let base_token_account = next_account_info(account_info_iter)?;
-        if *base_token_account.owner != spl_token::id() {
-            return Err(ProgramError::IllegalOwner);
-        }
+        let base_token_account_info = next_account_info(account_info_iter)?;
+        assert_owned_by(base_token_account_info, &spl_token::id())?;
+        //
+        // if *base_token_account.owner != spl_token::id() {
+        //     return Err(ProgramError::IllegalOwner);
+        // }
 
-        let recipe_token_mint = next_account_info(account_info_iter)?;
+        let recipe_token_mint_info = next_account_info(account_info_iter)?;
         //msg!("recipe_token_mint... {:?}", recipe_token_mint);
-        if !recipe_token_mint.is_writable {
-            return Err(ProgramError::InvalidInstructionData);
-        }
-        if *recipe_token_mint.owner != spl_token::id() {
-            return Err(ProgramError::IllegalOwner);
-        }
+        assert_writable(recipe_token_mint_info)?;
+        assert_owned_by(recipe_token_mint_info, &spl_token::id())?;
+        //
+        // if !recipe_token_mint.is_writable {
+        //     return Err(ProgramError::InvalidInstructionData);
+        // }
+        // if *recipe_token_mint.owner != spl_token::id() {
+        //     return Err(ProgramError::IllegalOwner);
+        // }
 
-        let sysvar_account = next_account_info(account_info_iter)?;
-        if *sysvar_account.key != sysvar::rent::id() {
-            return Err(ProgramError::IncorrectProgramId);
-        }
+        let sysvar_account_info = next_account_info(account_info_iter)?;
+        assert_acc_eq(sysvar_account_info, &sysvar::rent::id())?;
+        //
+        // if *sysvar_account.key != sysvar::rent::id() {
+        //     return Err(ProgramError::IncorrectProgramId);
+        // }
 
-        let tokenprogram_account = next_account_info(account_info_iter)?;
-        if *tokenprogram_account.key != spl_token::id() {
-            return Err(ProgramError::IncorrectProgramId);
-        }
+        let tokenprogram_account_info = next_account_info(account_info_iter)?;
+        assert_acc_eq(tokenprogram_account_info, &spl_token::id())?;
+        //
+        // if *tokenprogram_account.key != spl_token::id() {
+        //     return Err(ProgramError::IncorrectProgramId);
+        // }
 
-        let recipetoken_account_info = Mint::unpack(&recipe_token_mint.try_borrow_data()?)?;
+        let recipe_token_account_data = Mint::unpack(&recipe_token_mint_info.try_borrow_data()?)?;
         //msg!("recipe_token_mint...{:?}", recipetoken_account_info);
 
-        let recipe_token_owner = Self::get_pda_for_config(config_account.key, program_id);
+        let recipe_token_owner = Self::get_pda_for_config(config_account_info.key, program_id);
 
         msg!(
             "pda = {}, cur owner = {:?}",
             recipe_token_owner,
-            recipetoken_account_info.mint_authority
+            recipe_token_account_data.mint_authority
         );
-
-        if recipetoken_account_info.mint_authority != COption::Some(*initializer.key) {
+        if recipe_token_account_data.mint_authority != COption::Some(*initializer_info.key) {
             return Err(ProgramError::IllegalOwner);
         }
 
-        if recipetoken_account_info.freeze_authority != COption::Some(*initializer.key) {
+        if recipe_token_account_data.freeze_authority != COption::Some(*initializer_info.key) {
             return Err(ProgramError::IllegalOwner);
         }
 
-        let rent = &Rent::from_account_info(sysvar_account)?;
+        let rent = &Rent::from_account_info(sysvar_account_info)?;
 
-        if !rent.is_exempt(config_account.lamports(), config_account.data_len()) {
+        if !rent.is_exempt(config_account_info.lamports(), config_account_info.data_len()) {
             return Err(LunabankError::NotRentExempt.into());
         }
-        msg!("config_account: {:?}...", &config_account);
+        msg!("config_account: {:?}...", &config_account_info);
 
-        let mut config_info = Lunabank::unpack_unchecked(&config_account.try_borrow_data()?)?;
-        msg!("unpack done: {:?}...", &config_info);
-        if config_info.is_initialized() {
+        let mut config_data = Lunabank::unpack_unchecked(&config_account_info.try_borrow_data()?)?;
+        msg!("unpack done: {:?}...", &config_data);
+        if config_data.is_initialized() {
             return Err(ProgramError::AccountAlreadyInitialized);
         }
 
         // setup config
-        config_info.is_initialized = true;
-        config_info.owner = *initializer.key;
-        config_info.base_token_mint = *base_token_mint.key;
-        config_info.recipe_token_mint = *recipe_token_mint.key;
-        config_info.base_token_account = *base_token_account.key;
-        config_info.owner = *initializer.key;
-        Lunabank::pack(config_info, &mut config_account.try_borrow_mut_data()?)?;
+        config_data.is_initialized = true;
+        config_data.owner = *initializer_info.key;
+        config_data.base_token_mint = *base_token_mint_info.key;
+        config_data.recipe_token_mint = *recipe_token_mint_info.key;
+        config_data.base_token_account = *base_token_account_info.key;
+        config_data.owner = *initializer_info.key;
+        Lunabank::pack(config_data, &mut config_account_info.try_borrow_mut_data()?)?;
 
         // transfer authority of reciepe token
 
         let transfer_to_pda_ix = spl_token::instruction::set_authority(
-            tokenprogram_account.key,
-            recipe_token_mint.key,
+            tokenprogram_account_info.key,
+            recipe_token_mint_info.key,
             Some(&recipe_token_owner),
             AuthorityType::MintTokens,
-            initializer.key,
-            &[initializer.key],
+            initializer_info.key,
+            &[initializer_info.key],
         )?;
         msg!("Calling the token program to transfer authority of recipe mint to the bank...");
         invoke(
             &transfer_to_pda_ix,
-            &[recipe_token_mint.clone(), initializer.clone()],
+            &[
+                recipe_token_mint_info.clone(),
+                initializer_info.clone(),
+            ],
         )?;
 
-        let transferfreeze_to_pda_ix = spl_token::instruction::set_authority(
-            tokenprogram_account.key,
-            recipe_token_mint.key,
+        let transfer_freeze_to_pda_ix = spl_token::instruction::set_authority(
+            tokenprogram_account_info.key,
+            recipe_token_mint_info.key,
             Some(&recipe_token_owner),
             AuthorityType::FreezeAccount,
-            initializer.key,
-            &[initializer.key],
+            initializer_info.key,
+            &[initializer_info.key],
         )?;
 
         msg!("Calling the token program to transfer authority of recipe mint to the bank...");
         invoke(
-            &transferfreeze_to_pda_ix,
-            &[recipe_token_mint.clone(), initializer.clone()],
+            &transfer_freeze_to_pda_ix,
+            &[
+                recipe_token_mint_info.clone(),
+                initializer_info.clone()
+            ],
         )?;
 
         // owner of
 
         let transfer_basetoken_to_pda_ix = spl_token::instruction::set_authority(
-            tokenprogram_account.key,
-            base_token_account.key,
+            tokenprogram_account_info.key,
+            base_token_account_info.key,
             Some(&recipe_token_owner),
             AuthorityType::AccountOwner,
-            initializer.key,
-            &[initializer.key],
+            initializer_info.key,
+            &[initializer_info.key],
         )?;
 
         msg!("Calling the token program to transfer owner of token acc to the bank...");
         invoke(
             &transfer_basetoken_to_pda_ix,
-            &[base_token_account.clone(), initializer.clone()],
+            &[
+                base_token_account_info.clone(),
+                initializer_info.clone(),
+            ],
         )?;
 
         //TODO: create & error check
@@ -375,16 +386,12 @@ impl Processor {
         Ok(())
     }
 
-
-    fn update_last_with_seed<'a> (
+    fn update_last_with_seed<'a>(
         derives: &mut [&'a [u8]],
-        seed_dest: &'a mut[u8],
-        program_id: &Pubkey
+        seed_dest: &'a mut [u8],
+        program_id: &Pubkey,
     ) -> (Pubkey, u8) {
-        let (pda, seed) = Pubkey::find_program_address(
-            &derives[..derives.len() - 1],
-            program_id
-        );
+        let (pda, seed) = Pubkey::find_program_address(&derives[..derives.len() - 1], program_id);
         seed_dest[0] = seed;
         derives[derives.len() - 1] = seed_dest;
         (pda, seed)
@@ -500,7 +507,7 @@ impl Processor {
         let (pda_deposit_pubkey, _pda_deposit_seed) = Self::update_last_with_seed(
             &mut derive_deposit_info[..],
             &mut seed_deposit_vec[..],
-            program_id
+            program_id,
         );
 
         if *pda_user_account.key != pda_deposit_pubkey {
@@ -513,11 +520,8 @@ impl Processor {
             &b"lunaowner"[..],
             &b""[..],
         ];
-        let (pda_owner, _pda_seed) = Self::update_last_with_seed(
-            &mut derive_info[..],
-            &mut seed_vec[..],
-            program_id
-        );
+        let (pda_owner, _pda_seed) =
+            Self::update_last_with_seed(&mut derive_info[..], &mut seed_vec[..], program_id);
 
         if *pda_account.key != pda_owner {
             return Err(ProgramError::InvalidAccountData);
@@ -559,12 +563,11 @@ impl Processor {
                 pda_user_account.clone(),
                 system_program.clone(),
             ],
-            &[
-                &derive_deposit_info[..],
-            ],
+            &[&derive_deposit_info[..]],
         )?;
 
-        let mut deposit_acc_info = LunaDeposit::unpack_unchecked(&pda_user_account.try_borrow_data()?)?;
+        let mut deposit_acc_info =
+            LunaDeposit::unpack_unchecked(&pda_user_account.try_borrow_data()?)?;
         msg!("unpack done: {:?}...", &deposit_acc_info);
         if deposit_acc_info.is_initialized() {
             return Err(ProgramError::AccountAlreadyInitialized);
@@ -578,9 +581,12 @@ impl Processor {
         deposit_acc_info.start_timestamp = cur_ts;
         deposit_acc_info.end_timestamp = cur_ts
             .checked_add(deposit_time)
-            .ok_or(ProgramError::Custom(ERROR_TIME_OVERFLOW))?;
+            .ok_or(LunabankError::TimeOverflow)?;
         msg!("unpack done: {:?}...", &deposit_acc_info);
-        LunaDeposit::pack(deposit_acc_info, &mut pda_user_account.try_borrow_mut_data()?)?;
+        LunaDeposit::pack(
+            deposit_acc_info,
+            &mut pda_user_account.try_borrow_mut_data()?,
+        )?;
 
         // transfer base tokens
         //let transfer_basetoken_to_pda_ix = ;
@@ -606,7 +612,12 @@ impl Processor {
             ],
         )?;
 
-        msg!("mint_to... {} {} {}", recipe_token_mint.key, recipe_token_mint.key, user_recipe_token_account.key);
+        msg!(
+            "mint_to... {} {} {}",
+            recipe_token_mint.key,
+            recipe_token_mint.key,
+            user_recipe_token_account.key
+        );
         invoke_signed(
             &spl_token::instruction::mint_to(
                 tokenprogram_account.key,
@@ -622,9 +633,7 @@ impl Processor {
                 pda_account.clone(),
                 tokenprogram_account.clone(),
             ],
-            &[
-                &derive_info[..],
-            ],
+            &[&derive_info[..]],
         )?;
 
         invoke_signed(
@@ -641,21 +650,14 @@ impl Processor {
                 pda_account.clone(),
                 tokenprogram_account.clone(),
             ],
-            &[
-                &derive_info[..],
-            ],
+            &[&derive_info[..]],
         )?;
         //
-
 
         Ok(())
     }
 
-
-    fn process_withdraw(
-        accounts: &[AccountInfo],
-        program_id: &Pubkey
-    ) -> ProgramResult {
+    fn process_withdraw(accounts: &[AccountInfo], program_id: &Pubkey) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
         let payer = next_account_info(account_info_iter)?;
         if !payer.is_signer {
@@ -721,7 +723,6 @@ impl Processor {
             return Err(ProgramError::IncorrectProgramId);
         }
 
-
         msg!("accounts.. ok");
         let base_token_account_info = TokenAccount::unpack(&base_token_account.try_borrow_data()?)?;
         let recipe_token_account_info = Mint::unpack(&recipe_token_mint.try_borrow_data()?)?;
@@ -754,7 +755,7 @@ impl Processor {
         let (pda_deposit_pubkey, _pda_deposit_seed) = Self::update_last_with_seed(
             &mut derive_deposit_info[..],
             &mut seed_deposit_vec[..],
-            program_id
+            program_id,
         );
 
         if *pda_user_account.key != pda_deposit_pubkey {
@@ -767,11 +768,8 @@ impl Processor {
             &b"lunaowner"[..],
             &b""[..],
         ];
-        let (pda_owner, _pda_seed) = Self::update_last_with_seed(
-            &mut derive_info[..],
-            &mut seed_vec[..],
-            program_id
-        );
+        let (pda_owner, _pda_seed) =
+            Self::update_last_with_seed(&mut derive_info[..], &mut seed_vec[..], program_id);
         // let (pda_owner, pda_seed) = Pubkey::find_program_address(&derive_info[..], program_id);
         // let mut derive_exinfo = derive_info.to_vec();
         // let seed_vec = [pda_seed];
@@ -808,7 +806,7 @@ impl Processor {
         let clock = Clock::from_account_info(&clock_sysvar_info)?;
         let cur_ts = clock.unix_timestamp as u64;
         if cur_ts < deposit_acc_info.end_timestamp {
-            return Err(ProgramError::Custom(ERROR_TIME_TOO_SOON));
+            return Err(LunabankError::TimeOverflow.into());
         }
         // setup config
         let amount = deposit_acc_info.amount;
@@ -839,9 +837,7 @@ impl Processor {
                 pda_account.clone(),
                 tokenprogram_account.clone(),
             ],
-            &[
-                &derive_info[..],
-            ],
+            &[&derive_info[..]],
         )?;
 
         invoke_signed(
@@ -858,9 +854,7 @@ impl Processor {
                 pda_account.clone(),
                 tokenprogram_account.clone(),
             ],
-            &[
-                &derive_info[..],
-            ],
+            &[&derive_info[..]],
         )?;
         msg!("burn {}", user_recipe_token_account.key);
         invoke(
@@ -907,5 +901,4 @@ impl Processor {
 
         Ok(())
     }
-
 }

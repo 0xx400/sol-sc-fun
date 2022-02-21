@@ -16,6 +16,18 @@ pub enum LunabankError {
     /// Amount Overflow
     #[error("Amount Overflow")]
     AmountOverflow,
+    /// Time Overflow
+    #[error("Time overflow")]
+    TimeOverflow,
+    /// Derived key is invalid
+    #[error("Derived key is invalid")]
+    DerivedKeyInvalid,
+    /// Incorrect Owner
+    #[error("Incorrect Owner")]
+    IncorrectOwner,
+    /// WaitPeriod Breach
+    #[error("WaitPeriod Breach")]
+    WaitPeriodBreach,
 }
 
 impl From<LunabankError> for ProgramError {
