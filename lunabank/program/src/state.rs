@@ -1,14 +1,28 @@
+use crate::utils::try_from_slice_checked;
+//use arrayref::{array_mut_ref, array_ref, array_refs, mut_array_refs};
+use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
+    account_info::AccountInfo,
     program_error::ProgramError,
     program_pack::{IsInitialized, Pack, Sealed},
     pubkey::Pubkey,
 };
 
-use arrayref::{array_mut_ref, array_ref, array_refs, mut_array_refs};
+pub const LUNA_OWNER_PREFIX: &str = "lunaowner";
+pub const LUNA_DEPOSIT_PREFIX: &str = "deposit";
 
-#[derive(Debug)]
+#[repr(C)]
+#[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug, Clone, Copy)]
+pub enum Key {
+    Uninitialized,
+    LunabankV1,
+    LunaDepositV1,
+}
+
+#[repr(C)]
+#[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug, Clone)]
 pub struct Lunabank {
-    pub is_initialized: bool,
+    pub key: Key,
     pub owner: Pubkey,
     pub base_token_mint: Pubkey,
     pub recipe_token_mint: Pubkey,
@@ -16,68 +30,43 @@ pub struct Lunabank {
     pub coef: u64,
 }
 
-impl Sealed for Lunabank {}
-
 impl IsInitialized for Lunabank {
     fn is_initialized(&self) -> bool {
-        self.is_initialized
+        self.key != Key::Uninitialized
     }
 }
 
+impl Sealed for Lunabank {}
+
 impl Pack for Lunabank {
-    const LEN: usize = 137;
+    const LEN: usize = 1 //  key
+        + 32 // owner
+        + 32 // base_token_mint
+        + 32 // recipe_token_mint
+        + 32 // base_token_account
+        + 8; // coef
     fn pack_into_slice(&self, dst: &mut [u8]) {
-        let dst = array_mut_ref![dst, 0, Lunabank::LEN];
-        let (
-            is_initialized_dst,
-            owner_dst,
-            base_token_mint_dst,
-            recipe_token_mint_dst,
-            base_token_account_dst,
-            coef_dst,
-        ) = mut_array_refs![dst, 1, 32, 32, 32, 32, 8];
-
-        let Lunabank {
-            is_initialized,
-            owner,
-            base_token_mint,
-            recipe_token_mint,
-            base_token_account,
-            coef,
-        } = self;
-
-        is_initialized_dst[0] = *is_initialized as u8;
-        owner_dst.copy_from_slice(owner.as_ref());
-        base_token_mint_dst.copy_from_slice(base_token_mint.as_ref());
-        recipe_token_mint_dst.copy_from_slice(recipe_token_mint.as_ref());
-        base_token_account_dst.copy_from_slice(base_token_account.as_ref());
-        *coef_dst = coef.to_le_bytes();
+        let mut slice = dst;
+        self.serialize(&mut slice).unwrap();
     }
 
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-        let src = array_ref![src, 0, Lunabank::LEN];
-        let (is_initialized, owner, base_token_mint, recipe_token_mint, base_token_account, coef) =
-            array_refs![src, 1, 32, 32, 32, 32, 8];
-        let is_initialized = match is_initialized {
-            [0] => false,
-            [1] => true,
-            _ => return Err(ProgramError::InvalidAccountData),
-        };
-
-        Ok(Lunabank {
-            is_initialized,
-            owner: Pubkey::new_from_array(*owner),
-            base_token_mint: Pubkey::new_from_array(*base_token_mint),
-            recipe_token_mint: Pubkey::new_from_array(*recipe_token_mint),
-            base_token_account: Pubkey::new_from_array(*base_token_account),
-            coef: u64::from_le_bytes(*coef),
-        })
+        let luna_bank: Lunabank = try_from_slice_checked(src, Key::LunabankV1, Self::LEN)?;
+        Ok(luna_bank)
     }
 }
 
-#[derive(Debug)]
+impl Lunabank {
+    pub fn from_account_info(a: &AccountInfo) -> Result<Lunabank, ProgramError> {
+        let lunabank: Lunabank = Self::unpack_from_slice(&a.data.borrow_mut())?;
+        Ok(lunabank)
+    }
+}
+
+#[repr(C)]
+#[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug, Clone)]
 pub struct LunaDeposit {
-    pub is_initialized: bool,
+    pub key: Key,
     pub owner: Pubkey,
     pub amount: u64,
     pub start_timestamp: u64,
@@ -86,50 +75,32 @@ pub struct LunaDeposit {
 
 impl Sealed for LunaDeposit {}
 
-impl IsInitialized for LunaDeposit {
-    fn is_initialized(&self) -> bool {
-        self.is_initialized
-    }
-}
-
 impl Pack for LunaDeposit {
-    const LEN: usize = 57;
+    const LEN: usize = 1 // key
+        + 32 // owner
+        + 8 // amount
+        + 8 // start_timestamp
+        + 8; // end_timestamp
     fn pack_into_slice(&self, dst: &mut [u8]) {
-        let dst = array_mut_ref![dst, 0, LunaDeposit::LEN];
-        let (is_initialized_dst, owner_dst, amount_dst, start_timestamp_dst, end_timestamp_dst) =
-            mut_array_refs![dst, 1, 32, 8, 8, 8];
-
-        let LunaDeposit {
-            is_initialized,
-            owner,
-            amount,
-            start_timestamp,
-            end_timestamp,
-        } = self;
-
-        is_initialized_dst[0] = *is_initialized as u8;
-        owner_dst.copy_from_slice(owner.as_ref());
-        *amount_dst = amount.to_le_bytes();
-        *start_timestamp_dst = start_timestamp.to_le_bytes();
-        *end_timestamp_dst = end_timestamp.to_le_bytes();
+        let mut slice = dst;
+        self.serialize(&mut slice).unwrap();
     }
 
     fn unpack_from_slice(src: &[u8]) -> Result<Self, ProgramError> {
-        let src = array_ref![src, 0, LunaDeposit::LEN];
-        let (is_initialized, owner, amount, start_timestamp, end_timestamp) =
-            array_refs![src, 1, 32, 8, 8, 8];
-        let is_initialized = match is_initialized {
-            [0] => false,
-            [1] => true,
-            _ => return Err(ProgramError::InvalidAccountData),
-        };
+        let luna_deposit: LunaDeposit = try_from_slice_checked(src, Key::LunaDepositV1, Self::LEN)?;
+        Ok(luna_deposit)
+    }
+}
 
-        Ok(LunaDeposit {
-            is_initialized,
-            owner: Pubkey::new_from_array(*owner),
-            amount: u64::from_le_bytes(*amount),
-            start_timestamp: u64::from_le_bytes(*start_timestamp),
-            end_timestamp: u64::from_le_bytes(*end_timestamp),
-        })
+impl IsInitialized for LunaDeposit {
+    fn is_initialized(&self) -> bool {
+        self.key != Key::Uninitialized
+    }
+}
+
+impl LunaDeposit {
+    pub fn from_account_info(a: &AccountInfo) -> Result<LunaDeposit, ProgramError> {
+        let luna_deposit: LunaDeposit = Self::unpack_from_slice(&a.data.borrow_mut())?;
+        Ok(luna_deposit)
     }
 }

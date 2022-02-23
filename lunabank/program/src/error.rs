@@ -28,6 +28,9 @@ pub enum LunabankError {
     /// WaitPeriod Breach
     #[error("WaitPeriod Breach")]
     WaitPeriodBreach,
+    /// DataTypeMismatch
+    #[error("Wrong Key value")]
+    DataTypeMismatch,
 }
 
 impl From<LunabankError> for ProgramError {

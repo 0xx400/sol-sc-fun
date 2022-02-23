@@ -1,8 +1,10 @@
-use solana_program::program_error::ProgramError;
-use std::convert::TryInto;
+use borsh::{BorshDeserialize, BorshSerialize};
+//use solana_program::program_error::ProgramError;
+//use std::convert::TryInto;
 
-use crate::error::LunabankError::InvalidInstruction;
+//use crate::error::LunabankError::InvalidInstruction;
 
+#[derive(BorshSerialize, BorshDeserialize, Clone)]
 pub enum LunabankInstruction {
     /// Init account.
     ///
@@ -69,35 +71,4 @@ pub enum LunabankInstruction {
     /// 11. `[]` The system clock program
     ///
     WithdrawInstruction,
-}
-
-impl LunabankInstruction {
-    /// Unpacks a byte buffer into a [EscrowInstruction](enum.EscrowInstruction.html).
-    pub fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
-        let (tag, rest) = input.split_first().ok_or(InvalidInstruction)?;
-        Ok(match tag {
-            0 => Self::Init,
-            1 => Self::Close,
-            2 => {
-                let (amount, rest) = Self::unpack_u64(rest)?;
-                let (deposit_time, _rest) = Self::unpack_u64(rest)?;
-                Self::DepositInstruction {
-                    amount,
-                    deposit_time,
-                }
-            }
-            3 => Self::WithdrawInstruction,
-            _ => return Err(InvalidInstruction.into()),
-        })
-    }
-
-    fn unpack_u64(rest: &[u8]) -> Result<(u64, &[u8]), ProgramError> {
-        let (amount, rest) = rest.split_at(8);
-        let amount = amount
-            .try_into()
-            .ok()
-            .map(u64::from_le_bytes)
-            .ok_or(InvalidInstruction)?;
-        Ok((amount, rest))
-    }
 }
