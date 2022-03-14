@@ -1,0 +1,13 @@
+{
+    "name":"BaseT",
+    "symbol":"BASET",
+    "image": "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/217mKMvyGywmxyrurvo4Vt2jGhVXVhX81XaAgwK38cw7/logo.png",
+    "uri":"",
+    "sellerFeeBasisPoints":0,
+    "seller_fee_basis_points":0,
+    "properties": {
+        "creators": [
+            {"address": "BmrwoZVRHaJouKmtt7kRB94pKRhf2UcYi3GAStgQY7D6", "share": 100}
+        ]
+    }
+}
